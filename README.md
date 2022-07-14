@@ -3,6 +3,8 @@
 Code for [paper](http://arxiv.org/abs/1907.04155)
 
 ## Overview
+
+**This is a version of the repo from the authors!! this will use pytorch rather than tensorflow, and will use bird data instead of the data from the paper.**
 Our approach utilizes Variational Autoencoders with Gaussian Process prior for time series imputation. 
 
 * The inference model takes time series with missingness and predicts variational parameters for multivariate Gaussian variational distribution.
