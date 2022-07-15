@@ -203,6 +203,10 @@ class Encoder(nn.Module):
 			d: torch.tensor, encoder dist. diagonal
 		"""
 
+		# output shapes:
+		# mu: T x latent_dim
+		# us: T x latent_dim
+		# ds: T x latent_dim
 		x = self.encoder_conv(x)
 		x = x.view(-1, 8192)
 		mus = self.encoder_mu(x)
@@ -217,7 +221,8 @@ class Encoder(nn.Module):
 		#print(log_var.device)
 		#log_var = self.min_logvar + nn.ReLU()(log_var - self.min_logvar)
 
-		return mus, us.unsqueeze(-1), ds.exp()
+		# transpose each: pytorch will now treat latent dim as batch, T as dim of data
+		return torch.transpose(mus,0,1), torch.transpose(us,0,1).unsqueeze(-1), torch.transpose(ds,0,1).exp()
 
 	def draw_samples(self, z_mean, z_u, z_d):
 
@@ -238,9 +243,11 @@ class Encoder(nn.Module):
 			sample: torch.tensor, sample from dist.
 		"""
 		
-		dists = [LowRankMultivariateNormal(z_mean[:,ii].T,z_u[:,ii].T,z_d[:,ii].T) for ii in range(self.latent_dim)]
-		samples = [d.sample().T for d in dists]
-		samples = torch.stack(samples, axis=-1)
+		### This assumes input is in shape: latent_dim x T!! 
+		### this way torch will treat dim as independent, 
+		dists = LowRankMultivariateNormal(z_mean,z_u,z_d)
+		samples = dists.sample()
+		#samples = torch.stack(samples, axis=-1)
 		#sample = torch.randn(z_mean.shape,dtype=torch.float64)
 		#sample = z_mean + sample * torch.exp(0.5 * z_logvar)
 
@@ -269,6 +276,7 @@ class GPVAE(nn.Module):
 		self.encoder = Encoder(latent_dim)
 		self.decoder = Decoder(x_dim=x_dim,
 							decoder_dist=decoder_dist)
+
 		self.latent_dim = latent_dim
 		self.x_dim = x_dim
 		self.decoder_dist = decoder_dist
@@ -360,80 +368,85 @@ class GPVAE(nn.Module):
 			noise = torch.randn((num_samples, self.latent_dim))
 		return self.decoder.decode(noise)
 	
-	def _get_prior(self):
-		if self.prior is None:
-			# Compute kernel matrices for each latent dimension
-			kernel_matrices = []
-			for i in range(self.kernel_scales):
-				if self.kernel == "rbf":
-					kernel_matrices.append(rbf_kernel(self.time_length, self.length_scale / 2**i))
-				elif self.kernel == "diffusion":
-					kernel_matrices.append(diffusion_kernel(self.time_length, self.length_scale / 2**i))
-				elif self.kernel == "matern":
-					kernel_matrices.append(matern_kernel(self.time_length, self.length_scale / 2**i))
-				elif self.kernel == "cauchy":
-					kernel_matrices.append(cauchy_kernel(self.time_length, self.sigma, self.length_scale / 2**i))
+	def _get_prior(self,T):
+		
+		# Compute kernel matrices for each latent dimension
+		kernel_matrices = []
+		for i in range(self.kernel_scales):
+			if self.kernel == "rbf":
+				kernel_matrices.append(rbf_kernel(T, self.length_scale / 2**i))
+			elif self.kernel == "diffusion":
+				kernel_matrices.append(diffusion_kernel(T, self.length_scale / 2**i))
+			elif self.kernel == "matern":
+				kernel_matrices.append(matern_kernel(T, self.length_scale / 2**i))
+			elif self.kernel == "cauchy":
+				kernel_matrices.append(cauchy_kernel(T, self.sigma, self.length_scale / 2**i))
 
-			# Combine kernel matrices for each latent dimension
-			tiled_matrices = []
-			total = 0
-			for i in range(self.kernel_scales):
-				if i == self.kernel_scales-1:
-					multiplier = self.latent_dim - total
-				else:
-					multiplier = int(np.ceil(self.latent_dim / self.kernel_scales))
-					total += multiplier
-				tiled_matrices.append(torch.tile(torch.unsqueeze(kernel_matrices[i], 0), [multiplier, 1, 1]))
-			kernel_matrix_tiled = np.concatenate(tiled_matrices)
-			assert len(kernel_matrix_tiled) == self.latent_dim
+		# Combine kernel matrices for each latent dimension
+		tiled_matrices = []
+		total = 0
+		for i in range(self.kernel_scales):
+			if i == self.kernel_scales-1:
+				multiplier = self.latent_dim - total
+			else:
+				multiplier = int(np.ceil(self.latent_dim / self.kernel_scales))
+				total += multiplier
+			tiled_matrices.append(torch.tile(torch.unsqueeze(kernel_matrices[i], 0), [multiplier, 1, 1]))
+		kernel_matrix_tiled = torch.tensor(np.concatenate(tiled_matrices),device=self.device)
+		assert len(kernel_matrix_tiled) == self.latent_dim
 
-			self.prior = MultivariateNormal(
-				loc=tf.zeros([self.latent_dim, self.time_length], dtype=tf.float32),
-				covariance_matrix=kernel_matrix_tiled)
+		self.prior = MultivariateNormal(
+			loc=torch.zeros([self.latent_dim, T], dtype=torch.float32),
+			covariance_matrix=kernel_matrix_tiled)
 		return self.prior
 
 	def compute_nll(self, x, y=None, m_mask=None):
 		# Used only for evaluation
-		assert len(x.shape) == 3, "Input should have shape: [batch_size, time_length, data_dim]"
+		assert len(x.shape) == 4, "Input should have shape: [time_length, n_chan, h,w]"
 		if y is None: y = x
 
-		z_sample = self.encode(x).sample()
-		x_hat_dist = self.decode(z_sample)
+		mus,us,ds = self.encoder.encode(x)
+		z_samples = self.encoder.draw_samples(mus,us,ds)
+		# reshaping to be T x Z_dim
+		x_hat = self.decoder.decode(torch.transpose(z_samples,0,1))
 		nll = -x_hat_dist.log_prob(y)  # shape=(BS, TL, D)
-		nll = tf.where(tf.math.is_finite(nll), nll, tf.zeros_like(nll))
+		nll = torch.where(torch.is_finite(nll), nll, torch.zeros_like(nll))
 		if m_mask is not None:
-			m_mask = tf.cast(m_mask, tf.bool)
-			nll = tf.where(m_mask, nll, tf.zeros_like(nll))  # !!! inverse mask, set zeros for observed
-		return tf.reduce_sum(nll)
+			m_mask = m_mask.to(torch.bool)
+			nll = torch.where(m_mask, nll, torch.zeros_like(nll))  # !!! inverse mask, set zeros for observed
+		return torch.sum(nll)
 
 	def compute_mse(self, x, y=None, m_mask=None, binary=False):
 		# Used only for evaluation
-		assert len(x.shape) == 3, "Input should have shape: [batch_size, time_length, data_dim]"
+		assert len(x.shape) == 4, "Input should have shape: [time_length,n_chan,h,w]"
 		if y is None: y = x
 
-		z_mean = self.encode(x).mean()
-		x_hat_mean = self.decode(z_mean).mean()  # shape=(BS, TL, D)
+		z_means,_,_ = self.encoder.encode(x)
+		x_hat_mean = self.decoder.decode(torch.transpose(z_means,0,1))  # shape=(TL, h*w)
 		if binary:
-			x_hat_mean = tf.round(x_hat_mean)
-		mse = tf.math.squared_difference(x_hat_mean, y)
+			x_hat_mean = torch.round(x_hat_mean)
+		mse = torch.pow(x_hat_mean - y.view(y.shape[0],-1), 2)
 		if m_mask is not None:
-			m_mask = tf.cast(m_mask, tf.bool)
-			mse = tf.where(m_mask, mse, tf.zeros_like(mse))  # !!! inverse mask, set zeros for observed
-		return tf.reduce_sum(mse)
+			m_mask = m_mask.to(torch.bool)
+			mse = torch.where(m_mask, mse, torch.zeros_like(mse))  # !!! inverse mask, set zeros for observed
+		return torch.sum(mse)
 
 	def _compute_loss(self, x, m_mask=None, return_parts=False):
-		assert len(x.shape) == 3, "Input should have shape: [batch_size, time_length, data_dim]"
-		x = tf.identity(x)  # in case x is not a Tensor already...
-		x = tf.tile(x, [self.M * self.K, 1, 1])  # shape=(M*K*BS, TL, D)
+		assert len(x.shape) == 4, "Input should have shape: [time_length, n_chan,h,w]"
+		x = nn.identity(x)  # in case x is not a Tensor already...
+		x = torch.tile(x, [self.M * self.K, 1, 1])  # shape=(M*K*T, TL, D)
 
 		if m_mask is not None:
-			m_mask = tf.identity(m_mask)  # in case m_mask is not a Tensor already...
-			m_mask = tf.tile(m_mask, [self.M * self.K, 1, 1])  # shape=(M*K*BS, TL, D)
-			m_mask = tf.cast(m_mask, tf.bool)
+			m_mask = nn.identity(m_mask)  # in case m_mask is not a Tensor already...
+			m_mask = torch.tile(m_mask, [self.M * self.K, 1, 1])  # shape=(M*K*BS, TL, D)
+			m_mask = m_mask.to(torch.bool)
 
 		pz = self._get_prior()
-		qz_x = self.encode(x)
-		z = qz_x.sample()
+		mus,us,ds = self.encoder.encode(x)
+		
+		qz_x = LowRankMultivariateNormal(mus,us,ds)
+		
+		z = torch.transpose(qz_x.sample(),0,1)
 		px_z = self.decode(z)
 
 		nll = -px_z.log_prob(x)  # shape=(M*K*BS, TL, D)
