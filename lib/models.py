@@ -13,6 +13,7 @@ from tensorflow_probability import distributions as tfd
 import tensorflow as tf
 import torch.nn as nn
 import torch
+from matplotlib.pyplot import plt
 
 
 # Encoders
@@ -255,8 +256,8 @@ class Encoder(nn.Module):
 
 class GPVAE(nn.Module):
 
-	def __init__(self,latent_dim = 32, x_dim = 128**2,encoder_path=None,decoder_path = None,
-				decoder_dist = False,precision=10.0):
+	def __init__(self, encoder, decoder,save_dir,lr=1e-4,plots_dir=''):
+
 
 		"""
 		Initialize full VAE for ODE experiments. Why this needs to be separate
@@ -273,27 +274,24 @@ class GPVAE(nn.Module):
 						learned distribution or one with a pre-specified variance
 		"""
 		super(GPVAE,self).__init__()
-		self.encoder = Encoder(latent_dim)
-		self.decoder = Decoder(x_dim=x_dim,
-							decoder_dist=decoder_dist)
-
-		self.latent_dim = latent_dim
-		self.x_dim = x_dim
-		self.decoder_dist = decoder_dist
-
-		self.encoder_path = encoder_path
-		self.previous_epochs = 0
-
-		#self.log_file_dec = LogFile(decoder_path)
-		#self.log_file_enc = LogFile(encoder_path)
-		self.decoder_path = decoder_path
+		self.encoder = encoder
+		self.decoder = decoder
+		self.latent_dim = self.encoder.latent_dim
+		#self.x_dim = x_dim
+		#self.decoder_dist = decoder_dist
+		self.save_dir = save_dir
+		if not os.path.isdir(plots_dir):
+			os.mkdir(plots_dir)
+		self.plots_dir = plots_dir 
+		self.epoch = 0
+		self.lr = lr
+		self.loss = {'train': {}, 'test': {}}
 
 		#if device_name == "auto":
-		self.precision=precision
-		self.decoder_cov = torch.eye(self.latent_dim)/self.precision
 		device_name = "cuda" if torch.cuda.is_available() else "cpu"
 		self.device = torch.device(device_name)
 		self.to(self.device)
+		self.optimizer = Adam(self.parameters(), lr=lr) # 8e-5
 
 	def set_epoch(self,epoch):
 		"""
@@ -333,13 +331,17 @@ class GPVAE(nn.Module):
 		"""
 
 		#self.set_epoch(epoch)
-		encoder_fname = os.path.join(self.encoder_path, 'checkpoint_encoder_' + str(self.previous_epochs) + '.tar')
-		decoder_fname = os.path.join(self.decoder_path, 'checkpoint_decoder_' + str(self.previous_epochs) + '.tar')
+		fn = os.path.join(self.save_dir, 'checkpoint_encoder_' + str(self.epoch) + '.tar')
 
-		torch.save(self.encoder.state_dict(),encoder_fname)
-		torch.save(self.decoder.state_dict(),decoder_fname)
+		"""Save state."""
+		sd = self.state_dict()
+		torch.save({
+				'model_state_dict': sd,
+				'optimizer_state_dict': self.optimizer.state_dict(),
+				'epoch': self.epoch
+			}, fn)
 
-	def load_state(self,epoch):
+	def load_state(self,fn):
 
 		"""
 		Load state of network. Requires an epoch to recover the current state of network
@@ -348,20 +350,17 @@ class GPVAE(nn.Module):
 		-----
 			epoch: int, current epoch of training
 		"""
+		"""Load state."""
 
-		self.set_epoch(epoch)
+		print("Loading state from:", fn)
+		#print(self.state_dict().keys())
 
-		if self.encoder_path is not None:
+		checkpoint = torch.load(fn, map_location=self.device)
+		#layer_1 = checkpoint['model_state_dict'].pop('layer_1')
 
-			encoder_fname = os.path.join(self.encoder_path, 'checkpoint_encoder_' + str(self.previous_epochs) + '.tar')
-			checkpoint = torch.load(encoder_fname,map_location=self.device)
-			self.encoder.load_state_dict(checkpoint)
-
-		if self.decoder_path is not None:
-
-			decoder_fname = os.path.join(self.decoder_path, 'checkpoint_decoder_' + str(self.previous_epochs) + '.tar')
-			checkpoint = torch.load(decoder_fname,map_location=self.device)
-			self.decoder.load_state_dict(checkpoint)
+		self.load_state_dict(checkpoint['model_state_dict'])
+		self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+		self.epoch = checkpoint['epoch']
 		
 	def generate(self, noise=None, num_samples=1):
 		if noise is None:
@@ -480,7 +479,7 @@ class GPVAE(nn.Module):
 		if return_parts:
 			nll = torch.mean(nll)  # scalar
 			kl = torch.mean(kl)  # scalar
-			return -elbo, nll, kl, xhat.detach().cpu().numpy()
+			return -elbo, nll, kl, xhat.view(-1,128,128).detach().cpu().numpy()
 		else:
 			return -elbo
 
@@ -489,23 +488,221 @@ class GPVAE(nn.Module):
 		del m_mask
 		return self._compute_loss(x, return_parts=return_parts)
 	'''
-	def train_epoch(loader):
+	def train_epoch(self,loader):
 
+		self.train()
 		### each batch is one trajectory. 
 		train_loss = 0.0
+		train_nlp = 0.0
+		train_kl = 0.0
 		for ind, (spec,day) in enumerate(loader):
 
 			self.optimizer.zero_grad()
-			loss = self.compute_loss(spec)
+			day = day.to(self.device).squeeze()
+			#print(day.shape)
+			#print(spec.shape)
+			#spec = torch.stack(spec,axis=0)
+			spec = spec.to(self.device).squeeze().unsqueeze(1)
+
+			loss,nll,kl,_ = self._compute_loss(spec,return_parts=True)
 
 			loss.backward()
 
 			self.optimizer.step()
 
 			train_loss += loss.item()
+			train_nlp += nll.item()
+			train_kl += kl.item()
+		
+		train_loss /= len(loader)
+		train_nlp /= len(loader)
+		train_kl /= len(loader)
+
+		print('Epoch {0:d} average train loss: {1:.3f}'.format(self.epoch,train_loss))
+		print('Epoch {0:d} average train nll: {1:.3f}'.format(self.epoch,train_nlp))
+		print('Epoch {0:d} average train kl: {1:.3f}'.format(self.epoch,train_kl))
+		
+		return train_loss
+
+	def test_epoch(self,loader):
+
+		self.eval()
+
+		test_loss = 0.0
+		test_nlp = 0.0
+		test_kl = 0.0
+		for ind, (spec,day) in enumerate(loader):
+
+			day = day.to(self.device).squeeze()
+			#print(day.shape)
+			#print(spec.shape)
+			#spec = torch.stack(spec,axis=0)
+			spec = spec.to(self.device).squeeze().unsqueeze(1)
+			with torch.no_grad():
+				loss,nll,kl,_ = self._compute_loss(spec,return_parts=True)
+
+			
+
+			test_loss += loss.item()
+			test_nlp += nll.item()
+			test_kl += kl.item()
+		
+		test_loss /= len(loader)
+		test_nlp /= len(loader)
+		test_kl /= len(loader)
+
+		print('Epoch {0:d} average test loss: {1:.3f}'.format(self.epoch,test_loss))
+		print('Epoch {0:d} average test nll: {1:.3f}'.format(self.epoch,test_nlp))
+		print('Epoch {0:d} average test kl: {1:.3f}'.format(self.epoch,test_kl))
+
+		return test_loss
+
+	def train_test_loop(self,loaders, epochs=100, test_freq=2, save_freq=10,
+		vis_freq=1):
+		"""
+		Train the model for multiple epochs, testing and saving along the way.
+
+		Parameters
+		----------
+		loaders : dictionary
+			Dictionary mapping the keys ``'test'`` and ``'train'`` to respective
+			torch.utils.data.Dataloader objects.
+		epochs : int, optional
+			Number of (possibly additional) epochs to train the model for.
+			Defaults to ``100``.
+		test_freq : int, optional
+			Testing is performed every `test_freq` epochs. Defaults to ``2``.
+		save_freq : int, optional
+			The model is saved every `save_freq` epochs. Defaults to ``10``.
+		vis_freq : int, optional
+			Syllable reconstructions are plotted every `vis_freq` epochs.
+			Defaults to ``1``.
+		"""
+		print("="*40)
+		print("Training: epochs", self.epoch, "to", self.epoch+epochs-1)
+		print("Training set:", len(loaders['train'].dataset))
+		print("Test set:", len(loaders['test'].dataset))
+		print("="*40)
+		# For some number of epochs...
+		for epoch in range(self.epoch, self.epoch+epochs):
+			# Run through the training data and record a loss.
+			loss = self.train_epoch(loaders['train'])
+			self.loss['train'][epoch] = loss
+			# Run through the test data and record a loss.
+			if (test_freq is not None) and (epoch % test_freq == 0):
+				loss = self.test_epoch(loaders['test'])
+				self.loss['test'][epoch] = loss
+			# Save the model.
+			if (save_freq is not None) and (epoch % save_freq == 0) and \
+					(epoch > 0):
+				filename = "checkpoint_"+str(epoch).zfill(3)+'.tar'
+				self.save_state()
+			# Plot reconstructions.
+			if (vis_freq is not None) and (epoch % vis_freq == 0):
+				self.visualize(loaders['test'])
+
+			self.epoch += 1
+
+	def visualize(self, loader, num_specs=5):
+		"""
+		Plot spectrograms and their reconstructions.
+
+		Spectrograms are chosen at random from the Dataloader Dataset.
+
+		Parameters
+		----------
+		loader : torch.utils.data.Dataloader
+			Spectrogram Dataloader
+		num_specs : int, optional
+			Number of spectrogram pairs to plot. Defaults to ``5``.
+		gap : int or tuple of two ints, optional
+			The vertical and horizontal gap between images, in pixels. Defaults
+			to ``(2,6)``.
+		save_filename : str, optional
+			Where to save the plot, relative to `self.save_dir`. Defaults to
+			``'temp.pdf'``.
+
+		Returns
+		-------
+		specs : numpy.ndarray
+			Spectgorams from `loader`.
+		rec_specs : numpy.ndarray
+			Corresponding spectrogram reconstructions.
+		"""
+		# Collect random indices.
+		assert num_specs <= len(loader.dataset) and num_specs >= 1
+		indices = np.random.choice(np.arange(len(loader.dataset)),
+			size=num_specs,replace=False)
+		
+		(specs,days) = loader.dataset[indices]
+		for spec in specs:
+			spec = spec.to(self.device).squeeze().unsqueeze(1)
 
 
-		return
+			# Retrieve spectrograms from the loader.
+			# Get resonstructions.
+			with torch.no_grad():
+				_, _, _,rec_specs = self.compute_loss(spec, return_parts=True)
+			spec = spec.detach().cpu().numpy()
+			nrows = 1 + spec.shape[0]//5
+			fig,axs = plt.subplots(nrows=nrows,ncols=5)
+			row_ind = 0
+			col_ind = 0
+
+			for im in range(rec_specs.shape[0]):
+
+				if col_ind >= 5:
+					row_ind += 1
+					col_ind = 0
+
+				axs[row_ind,col_ind].imshow(rec_specs[im,:,:],origin='lower')
+				axs[row_ind,col_ind].get_xaxis().set_visible(False)
+				axs[row_ind,col_ind].get_yaxis().set_visible(False)
+				col_ind += 1
+
+			for ii in range(col_ind,5):
+				axs[row_ind,ii].get_xaxis().set_visible(False)
+				axs[row_ind,ii].get_yaxis().set_visible(False)
+				axs[row_ind,ii].axis('square')
+
+
+			#all_specs = np.stack([specs, rec_specs])
+		# Plot.
+			save_fn = 'reconstruction_epoch_' + str(self.epoch) + '_' + str(im) + '.png' 
+			save_filename = os.path.join(self.plots_dir, save_fn)
+
+			plt.savefig(save_filename)
+			plt.close('all')
+
+			fig,axs = plt.subplots(nrows=nrows,ncols=5)
+			row_ind = 0
+			col_ind = 0
+
+			for im in range(spec.shape[0]):
+
+				if col_ind >= 5:
+					row_ind += 1
+					col_ind = 0
+
+				axs[row_ind,col_ind].imshow(spec[im,:,:,:].squeeze(),origin='lower')
+				axs[row_ind,col_ind].get_xaxis().set_visible(False)
+				axs[row_ind,col_ind].get_yaxis().set_visible(False)
+				col_ind += 1
+
+			for ii in range(col_ind,5):
+				axs[row_ind,ii].get_xaxis().set_visible(False)
+				axs[row_ind,ii].get_yaxis().set_visible(False)
+				axs[row_ind,ii].axis('square')
+
+			#all_specs = np.stack([specs, rec_specs])
+		# Plot.
+			save_fn = 'real_epoch_' + str(self.epoch) + '_' + str(im) + '.png' 
+			save_filename = os.path.join(self.plots_dir, save_fn)
+
+			plt.savefig(save_filename)
+			plt.close('all')
+
+		return 
 	'''
 	MAYBE return to this when everything works. MAYBE.
 	def kl_divergence(self, a, b):
