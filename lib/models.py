@@ -491,7 +491,20 @@ class GPVAE(nn.Module):
 	'''
 	def train_epoch(loader):
 
-		
+		### each batch is one trajectory. 
+		train_loss = 0.0
+		for ind, (spec,day) in enumerate(loader):
+
+			self.optimizer.zero_grad()
+			loss = self.compute_loss(spec)
+
+			loss.backward()
+
+			self.optimizer.step()
+
+			train_loss += loss.item()
+
+
 		return
 	'''
 	MAYBE return to this when everything works. MAYBE.
