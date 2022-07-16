@@ -440,6 +440,7 @@ class GPVAE(nn.Module):
 	def _compute_loss(self, x, m_mask=None, return_parts=False):
 		assert len(x.shape) == 4, "Input should have shape: [time_length, n_chan,h,w]"
 		#x = nn.Identity(x)  # in case x is not a Tensor already...
+		T = x.shape[0]
 		x = torch.tile(x, [self.M * self.K, 1,1, 1])  # shape=(M*K*T, n_chan, h,w)
 
 		if m_mask is not None:
@@ -447,7 +448,7 @@ class GPVAE(nn.Module):
 			m_mask = torch.tile(m_mask, [self.M * self.K, 1, 1])  # shape=(M*K*BS, TL, D)
 			m_mask = m_mask.to(torch.bool)
 
-		pz = self._get_prior()
+		pz = self._get_prior(T)
 		mus,us,ds = self.encoder.encode(x)
 		
 		qz_x = LowRankMultivariateNormal(mus,us,ds)
