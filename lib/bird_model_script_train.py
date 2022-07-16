@@ -7,8 +7,9 @@ parentdir = os.path.dirname(os.path.dirname(currentdir))
 sys.path.insert(0, parentdir) 
 
 import fire
-from VAE_Projects.models.models import encoder,decoder,VAE_Base,SmoothnessPriorVae,ReconstructTimeVae
-from VAE_Projects.models.utils import rbf_dot,mmd_fxn,numpy_to_tensor
+from gp_vae_me.lib.models import Encoder, Decoder, GPVAE
+#from VAE_Projects.models.models import encoder,decoder,VAE_Base,SmoothnessPriorVae,ReconstructTimeVae
+#from VAE_Projects.models.utils import rbf_dot,mmd_fxn,numpy_to_tensor
 import matplotlib.pyplot as plt
 from colour import Color
 import numpy as np
@@ -227,7 +228,7 @@ def model_comparison_umap(vanilla,smoothprior,time_recon,loader,n_samples = 5,da
 
 
 
-def bird_model_script(vanilla_dir='',smoothness_dir = '',time_recondir = '',datadir='',segment=False):
+def bird_model_script(gpdir='',datadir='',segment=False):
 
 ########## Setting up directory lists: separate into train, test dirs
 ############# Expected File Structure
@@ -364,21 +365,21 @@ def bird_model_script(vanilla_dir='',smoothness_dir = '',time_recondir = '',data
 #############################
 # 1) Train model            #
 #############################
-	if vanilla_dir != '':
-		if not os.path.isdir(vanilla_dir):
-			os.mkdir(vanilla_dir)
-		save_file = os.path.join(vanilla_dir,'checkpoint_encoder_300.tar')
+	if gpdir != '':
+		if not os.path.isdir(gpdir):
+			os.mkdir(gpdir)
+		save_file = os.path.join(gpdir,'checkpoint_encoder_300.tar')
 		#print(save_file)
-		vanilla_encoder = encoder()
-		vanilla_decoder = decoder()
-		vanilla_vae = VAE_Base(vanilla_encoder,vanilla_decoder,vanilla_dir,plots_dir=os.path.join(vanilla_dir,'plots_shortwindow'))
+		encoder = Encoder()
+		decoder = Decoder()
+		gpvae = GPVAE(encoder,decoder,gpdir,plots_dir=os.path.join(gpvae,'plots_shortwindow'))
 
 		if not os.path.isfile(save_file):
 			print('training vanilla')
-			vanilla_vae.train_test_loop(loaders_for_prediction,epochs=301,test_freq=5,save_freq=50,vis_freq=25)
+			gpvae.train_test_loop(loaders_for_prediction,epochs=301,test_freq=5,save_freq=50,vis_freq=25)
 		else:
 			print('loading vanilla')
-			vanilla_vae.load_state(save_file)
+			gpvae.load_state(save_file)
 			#vanilla_vae.train_test_loop(loaders_for_prediction,epochs=151,test_freq=5,save_freq=50,vis_freq=25)
 			#vanilla_vae.test_epoch(loaders_for_prediction['test'])
 			loaders = []
@@ -399,7 +400,8 @@ def bird_model_script(vanilla_dir='',smoothness_dir = '',time_recondir = '',data
 			'''
 			
 			Add in new analyses here!!!!
-			'''
+	'''
+	'''
 	if smoothness_dir != '':
 		if not os.path.isdir(smoothness_dir):
 			os.mkdir(smoothness_dir)
@@ -417,11 +419,11 @@ def bird_model_script(vanilla_dir='',smoothness_dir = '',time_recondir = '',data
 			#smooth_prior_vae.train_test_loop(loaders_for_prediction,epochs=151,test_freq=5,save_freq=50,vis_freq=25)
 			#smooth_prior_vae.test_epoch(loaders_for_prediction['test'])
 			#mean,_ = smoothness_analysis(smooth_prior_vae,loaders[0]['train'])
-			'''
+		   
 			for ind, l in enumerate(loaders):
 				print('Developmental day {} \n'.format(realTrainDays[ind]))
 				_,_ = pca_analysis(smooth_prior_vae,l['train'])
-			'''
+	
 	if time_recondir != '':
 		if not os.path.isdir(time_recondir):
 			os.mkdir(time_recondir)
@@ -440,12 +442,12 @@ def bird_model_script(vanilla_dir='',smoothness_dir = '',time_recondir = '',data
 			#time_vae.train_test_loop(loaders_for_prediction,epochs=151,test_freq=5,save_freq=50,vis_freq=25)
 			#mean,_ = smoothness_analysis(time_vae,loaders[0]['train'])
 
-			'''
+	
 			for ind, l in enumerate(loaders):
 				print('Developmental day {} \n'.format(realTrainDays[ind]))
 				_,_ = pca_analysis(time_vae,l['train'])
-			'''
-
+	'''
+	'''
 	print('doing model comparison')
 	joint_umap = model_comparison_umap(vanilla_vae,smooth_prior_vae,time_vae,loaders_for_prediction['test'],day_name='')
 
@@ -455,8 +457,7 @@ def bird_model_script(vanilla_dir='',smoothness_dir = '',time_recondir = '',data
 		print('getting prediction loader')
 		loaders_for_prediction = get_fixed_ordered_data_loaders_motif(motif_part,segment_params)
 		model_comparison_umap(vanilla_vae,smooth_prior_vae,time_vae,loaders_for_prediction['test'],day_name=day,joint_umap=joint_umap,return_umap=False)
-
-	'''
+	
 	print('umappin')
 	umap_latents = np.vstack(all_latents)
 	color_inds = np.hstack(color_inds)
