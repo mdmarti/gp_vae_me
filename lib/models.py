@@ -13,6 +13,8 @@ from tensorflow_probability import distributions as tfd
 import tensorflow as tf
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
+from torch.optim import Adam
 import matplotlib.pyplot as plt
 
 
