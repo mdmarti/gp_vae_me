@@ -374,7 +374,7 @@ def bird_model_script(gpdir='',datadir='',segment=False):
 		#print(save_file)
 		encoder = Encoder()
 		decoder = Decoder()
-		gpvae = GPVAE(encoder,decoder,gpdir,plots_dir=os.path.join(gpvae,'plots_shortwindow'))
+		gpvae = GPVAE(encoder,decoder,gpdir,plots_dir=os.path.join(gpdir,'plots_shortwindow'))
 
 		if not os.path.isfile(save_file):
 			print('training vanilla')
