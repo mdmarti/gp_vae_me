@@ -275,10 +275,12 @@ def bird_model_script(gpdir='',datadir='',segment=False):
 	z_dim = 32
 
 	# these were actually important - used for R-VAE experiments so we could have CLEAN data
-	adult_audio_dirs = ['/home/mrmiews/Desktop/Pearson_Lab/bird_data/blk417_tutor/motif_audio_tutor',
-						'/home/mrmiews/Desktop/Pearson_Lab/bird_data/blk411_tutor/motif_audio_tutor']
-	adult_motif_dirs = ['/home/mrmiews/Desktop/Pearson_Lab/bird_data/blk417_tutor/motif_segs',
-						'/home/mrmiews/Desktop/Pearson_Lab/bird_data/blk411_tutor/motif_segs']
+	adult_audio_dirs = [os.path.join(datadir, 'blk417_tutor','motif_audio_tutor'),
+						os.path.join(datadir,'blk411_tutor','motif_audio_tutor')]
+	adult_motif_dirs = [os.path.join(datadir, 'blk417_tutor','motif_segs'),
+						os.path.join(datadir,'blk411_tutor','motif_segs')]
+						#['/home/mrmiews/Desktop/Pearson_Lab/bird_data/blk417_tutor/motif_segs',
+						#'/home/mrmiews/Desktop/Pearson_Lab/bird_data/blk411_tutor/motif_segs']
 
 
 	# directory names for each data source. audio, segment (ROIs within audio), specs (unused), projections (unused)
