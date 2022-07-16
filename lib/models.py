@@ -407,7 +407,7 @@ class GPVAE(nn.Module):
 
 		self.prior = MultivariateNormal(
 			loc=torch.zeros([self.latent_dim, T], dtype=torch.float32),
-			covariance_matrix=kernel_matrix_tiled)
+			covariance_matrix=kernel_matrix_tiled).to(self.device)
 		return self.prior
 
 	def compute_nll(self, x, y=None, m_mask=None):
