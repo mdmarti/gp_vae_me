@@ -452,12 +452,12 @@ class GPVAE(nn.Module):
 			m_mask = m_mask.to(torch.bool)
 
 		pz = self._get_prior(T)
-		mus,us,ds = self.encoder.encode(x)
+		mus,us,ds = self.encoder.forward(x)
 		
 		qz_x = LowRankMultivariateNormal(mus,us,ds)
 		
 		zhat = torch.transpose(qz_x.sample(),0,1)
-		xhat = self.decode(zhat)
+		xhat = self.decoder.forward(zhat)
 
 		px_z = Normal(xhat, 1/self.precision)
 
