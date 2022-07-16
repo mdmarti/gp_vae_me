@@ -500,7 +500,7 @@ class GPVAE(nn.Module):
 		for ind, (spec,day) in enumerate(loader):
 
 			self.optimizer.zero_grad()
-			day = torch.stack(day).to(self.device).squeeze()
+			day = day.to(self.device).squeeze()
 			#print(day.shape)
 			#print(spec.shape)
 			#spec = torch.stack(spec,axis=0)
