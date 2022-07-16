@@ -247,7 +247,7 @@ def bird_model_script(gpdir='',datadir='',segment=False):
 # | ...
 
 	# here is where the data are stored
-	datadir = '/home/mrmiews/' #'/media/mrmiews/Storage for Data/'
+	#datadir = '/home/mrmiews/' #'/media/mrmiews/Storage for Data/'
 
 	# here are the days we are using to train our model. Each day has .wav files
 	# containing song

@@ -13,7 +13,7 @@ from tensorflow_probability import distributions as tfd
 import tensorflow as tf
 import torch.nn as nn
 import torch
-from matplotlib.pyplot import plt
+import matplotlib.pyplot as plt
 
 
 # Encoders
