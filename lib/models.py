@@ -259,7 +259,7 @@ class Encoder(nn.Module):
 
 class GPVAE(nn.Module):
 
-	def __init__(self, encoder, decoder,save_dir,lr=1e-4,plots_dir=''):
+	def __init__(self, encoder, decoder,save_dir,lr=1e-4,plots_dir='',precision=10):
 
 
 		"""
@@ -297,6 +297,7 @@ class GPVAE(nn.Module):
 		self.length_scale=7
 		self.sigma=1.005
 		self.kernel = 'cauchy'
+		self.precision=precision
 		#if device_name == "auto":
 		device_name = "cuda" if torch.cuda.is_available() else "cpu"
 		self.device = torch.device(device_name)
