@@ -435,11 +435,11 @@ class GPVAE(nn.Module):
 
 	def _compute_loss(self, x, m_mask=None, return_parts=False):
 		assert len(x.shape) == 4, "Input should have shape: [time_length, n_chan,h,w]"
-		x = nn.identity(x)  # in case x is not a Tensor already...
+		x = nn.Identity(x)  # in case x is not a Tensor already...
 		x = torch.tile(x, [self.M * self.K, 1,1, 1])  # shape=(M*K*T, n_chan, h,w)
 
 		if m_mask is not None:
-			m_mask = nn.identity(m_mask)  # in case m_mask is not a Tensor already...
+			m_mask = nn.Identity(m_mask)  # in case m_mask is not a Tensor already...
 			m_mask = torch.tile(m_mask, [self.M * self.K, 1, 1])  # shape=(M*K*BS, TL, D)
 			m_mask = m_mask.to(torch.bool)
 
@@ -959,7 +959,7 @@ class VAE(tf.keras.Model):
 		self.M = M
 
 	def encode(self, x):
-		x = tf.identity(x)  # in case x is not a Tensor already...
+		x = tf.Identity(x)  # in case x is not a Tensor already...
 		if self.preprocessor is not None:
 			x_shape = x.shape.as_list()
 			new_shape = [x_shape[0] * x_shape[1]] + list(self.preprocessor.image_shape)
@@ -969,7 +969,7 @@ class VAE(tf.keras.Model):
 		return self.encoder(x)
 
 	def decode(self, z):
-		z = tf.identity(z)  # in case z is not a Tensor already...
+		z = tf.Identity(z)  # in case z is not a Tensor already...
 		return self.decoder(z)
 
 	def __call__(self, inputs):
@@ -1017,11 +1017,11 @@ class VAE(tf.keras.Model):
 
 	def _compute_loss(self, x, m_mask=None, return_parts=False):
 		assert len(x.shape) == 3, "Input should have shape: [batch_size, time_length, data_dim]"
-		x = tf.identity(x)  # in case x is not a Tensor already...
+		x = tf.Identity(x)  # in case x is not a Tensor already...
 		x = tf.tile(x, [self.M * self.K, 1, 1])  # shape=(M*K*BS, TL, D)
 
 		if m_mask is not None:
-			m_mask = tf.identity(m_mask)  # in case m_mask is not a Tensor already...
+			m_mask = tf.Identity(m_mask)  # in case m_mask is not a Tensor already...
 			m_mask = tf.tile(m_mask, [self.M * self.K, 1, 1])  # shape=(M*K*BS, TL, D)
 			m_mask = tf.cast(m_mask, tf.bool)
 
