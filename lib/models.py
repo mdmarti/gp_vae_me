@@ -461,13 +461,13 @@ class GPVAE(nn.Module):
 		if self.K > 1:
 			kl = qz_x.log_prob(zhat) - pz.log_prob(zhat)  # shape=(M*K*TL, or d)
 			kl = torch.where(torch.is_finite(kl), kl, torch.zeros_like(kl))
-			kl = torch.reduce_sum(kl, 1)  # shape=(M*K*BS)
+			kl = torch.sum(kl, 1)  # shape=(M*K*BS)
 
 			weights = -nll - kl  # shape=(M*K*BS)
 			weights = torch.reshape(weights, [self.M, self.K, -1])  # shape=(M, K, T)
 
 			elbo = reduce_logmeanexp(weights, axis=1)  # shape=(M, 1, BS)
-			elbo = tf.reduce_mean(elbo)  # scalar
+			elbo = torch.mean(elbo)  # scalar
 		else:
 			# if K==1, compute KL analytically
 			kl = kl_divergence(qz_x, pz)  # shape=(TL x ??)
@@ -480,7 +480,7 @@ class GPVAE(nn.Module):
 		if return_parts:
 			nll = torch.mean(nll)  # scalar
 			kl = torch.mean(kl)  # scalar
-			return -elbo, nll, kl
+			return -elbo, nll, kl, xhat.detach().cpu().numpy()
 		else:
 			return -elbo
 
@@ -488,13 +488,60 @@ class GPVAE(nn.Module):
 		del m_mask
 		return self._compute_loss(x, return_parts=return_parts)
 
+	'''
+	MAYBE return to this when everything works. MAYBE.
+	def kl_divergence(self, a, b):
+		""" Batched KL divergence `KL(a || b)` for multivariate Normals.
+			See https://github.com/tensorflow/probability/blob/master/tensorflow_probability
+					   /python/distributions/mvn_linear_operator.py
+			It's used instead of default KL class in order to exploit precomputed components for efficiency
+		"""
+
+		def squared_frobenius_norm(x):
+			"""Helper to make KL calculation slightly more readable."""
+			return torch.sum(torch.pow(x,2), dim=(-2, -1))
+
+		def is_diagonal(x):
+			"""Helper to identify if `LinearOperator` has only a diagonal component."""
+			return (isinstance(x, tf.linalg.LinearOperatorIdentity) or
+					isinstance(x, tf.linalg.LinearOperatorScaledIdentity) or
+					isinstance(x, tf.linalg.LinearOperatorDiag))
+
+		if is_diagonal(a.scale) and is_diagonal(b.scale):
+			# Using `stddev` because it handles expansion of Identity cases.
+			b_inv_a = (a.stddev() / b.stddev())[..., None]
+		else:
+			if self.pz_scale_inv is None:
+				self.pz_scale_inv = torch.linalg.inv(b.scale.to_dense())
+				self.pz_scale_inv = tf.where(tf.math.is_finite(self.pz_scale_inv),
+											 self.pz_scale_inv, tf.zeros_like(self.pz_scale_inv))
+
+			if self.pz_scale_log_abs_determinant is None:
+				self.pz_scale_log_abs_determinant = b.scale.log_abs_determinant()
+
+			a_shape = a.scale.shape
+			if len(b.scale.shape) == 3:
+				_b_scale_inv = tf.tile(self.pz_scale_inv[tf.newaxis], [a_shape[0]] + [1] * (len(a_shape) - 1))
+			else:
+				_b_scale_inv = tf.tile(self.pz_scale_inv, [a_shape[0]] + [1] * (len(a_shape) - 1))
+
+			b_inv_a = _b_scale_inv @ a.scale.to_dense()
+
+		# ~10x times faster on CPU then on GPU
+		with tf.device('/cpu:0'):
+			kl_div = (self.pz_scale_log_abs_determinant - a.scale.log_abs_determinant() +
+					  0.5 * (-tf.cast(a.scale.domain_dimension_tensor(), a.dtype) +
+					  squared_frobenius_norm(b_inv_a) + squared_frobenius_norm(
+					  b.scale.solve((b.mean() - a.mean())[..., tf.newaxis]))))
+		return kl_div
+	'''
 	#def kl_divergence(self, a, b):
 	#	return tfd.kl_divergence(a, b)
 
-	def get_trainable_vars(self):
-		self.compute_loss(tf.random.normal(shape=(1, self.time_length, self.data_dim), dtype=tf.float32),
-						  tf.zeros(shape=(1, self.time_length, self.data_dim), dtype=tf.float32))
-		return self.trainable_variables
+	#def get_trainable_vars(self):
+	#	self.compute_loss(tf.random.normal(shape=(1, self.time_length, self.data_dim), dtype=tf.float32),
+	#					  tf.zeros(shape=(1, self.time_length, self.data_dim), dtype=tf.float32))
+	#	return self.trainable_variables
 
 '''
 Things I may not need! encoders from Fortuin paper
