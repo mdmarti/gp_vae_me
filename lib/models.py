@@ -439,11 +439,11 @@ class GPVAE(nn.Module):
 
 	def _compute_loss(self, x, m_mask=None, return_parts=False):
 		assert len(x.shape) == 4, "Input should have shape: [time_length, n_chan,h,w]"
-		x = nn.Identity(x)  # in case x is not a Tensor already...
+		#x = nn.Identity(x)  # in case x is not a Tensor already...
 		x = torch.tile(x, [self.M * self.K, 1,1, 1])  # shape=(M*K*T, n_chan, h,w)
 
 		if m_mask is not None:
-			m_mask = nn.Identity(m_mask)  # in case m_mask is not a Tensor already...
+			#m_mask = nn.Identity(m_mask)  # in case m_mask is not a Tensor already...
 			m_mask = torch.tile(m_mask, [self.M * self.K, 1, 1])  # shape=(M*K*BS, TL, D)
 			m_mask = m_mask.to(torch.bool)
 
