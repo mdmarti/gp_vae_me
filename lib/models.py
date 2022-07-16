@@ -289,6 +289,10 @@ class GPVAE(nn.Module):
 		self.lr = lr
 		self.loss = {'train': {}, 'test': {}}
 
+		### maybe change later
+		self.M = 1
+		self.K = 1
+
 		#if device_name == "auto":
 		device_name = "cuda" if torch.cuda.is_available() else "cpu"
 		self.device = torch.device(device_name)
