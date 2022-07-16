@@ -484,10 +484,15 @@ class GPVAE(nn.Module):
 		else:
 			return -elbo
 
+	'''
 	def compute_loss(self, x, m_mask=None, return_parts=False):
 		del m_mask
 		return self._compute_loss(x, return_parts=return_parts)
+	'''
+	def train_epoch(loader):
 
+		
+		return
 	'''
 	MAYBE return to this when everything works. MAYBE.
 	def kl_divergence(self, a, b):
