@@ -295,6 +295,7 @@ class GPVAE(nn.Module):
 		self.kernel_scales=1
 		self.length_scale=7
 		self.sigma=1.005
+		self.kernel = 'cauchy'
 		#if device_name == "auto":
 		device_name = "cuda" if torch.cuda.is_available() else "cpu"
 		self.device = torch.device(device_name)
