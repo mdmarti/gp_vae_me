@@ -354,7 +354,7 @@ def bird_model_script(gpdir='',datadir='',segment=False):
 	# this is using full motifs, so it should be fine. if you want to use the actual youth song,
 	# change the get_window_partition bit to include freshly segmented data
 	#loaders = get_fixed_window_data_loaders(test_part, segment_params)
-	motif_part = get_window_partition(dsb_audio_dirs,dsb_segment_dirs,0.8)
+	motif_part = get_window_partition(adult_audio_dirs,adult_motif_dirs,0.8)
 	#motif_part['test'] = motif_part['train']
 	print('getting prediction loader')
 	loaders_for_prediction = get_fixed_ordered_data_loaders_motif(motif_part,segment_params)
