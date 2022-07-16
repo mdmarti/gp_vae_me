@@ -421,7 +421,7 @@ class GPVAE(nn.Module):
 		x_hat = self.decoder.decode(torch.transpose(z_samples,0,1))
 		x_hat_dist = Normal(x_hat, 1/self.precision)
 		nll = -x_hat_dist.log_prob(y)  # shape=(TL, D)
-		nll = torch.where(torch.is_finite(nll), nll, torch.zeros_like(nll))
+		nll = torch.where(torch.isfinite(nll), nll, torch.zeros_like(nll))
 		if m_mask is not None:
 			m_mask = m_mask.to(torch.bool)
 			nll = torch.where(m_mask, nll, torch.zeros_like(nll))  # !!! inverse mask, set zeros for observed
@@ -464,14 +464,14 @@ class GPVAE(nn.Module):
 		px_z = Normal(xhat, 1/self.precision)
 
 		nll = -px_z.log_prob(x)  # shape=(M*K*TL, D)
-		nll = torch.where(torch.is_finite(nll), nll, torch.zeros_like(nll))
+		nll = torch.where(torch.isfinite(nll), nll, torch.zeros_like(nll))
 		if m_mask is not None:
 			nll = torch.where(m_mask, torch.zeros_like(nll), nll)  # if not HI-VAE, m_mask is always zeros
 		nll = torch.sum(nll, dim=-1)  # shape=(M*K*BS)
 
 		if self.K > 1:
 			kl = qz_x.log_prob(zhat) - pz.log_prob(zhat)  # shape=(M*K*TL, or d)
-			kl = torch.where(torch.is_finite(kl), kl, torch.zeros_like(kl))
+			kl = torch.where(torch.isfinite(kl), kl, torch.zeros_like(kl))
 			kl = torch.sum(kl, 1)  # shape=(M*K*BS)
 
 			weights = -nll - kl  # shape=(M*K*BS)
@@ -482,7 +482,7 @@ class GPVAE(nn.Module):
 		else:
 			# if K==1, compute KL analytically
 			kl = kl_divergence(qz_x, pz)  # shape=(TL x ??)
-			kl = torch.where(torch.is_finite(kl), kl, torch.zeros_like(kl))
+			kl = torch.where(torch.isfinite(kl), kl, torch.zeros_like(kl))
 			kl = torch.sum(kl, dim=1)  # shape=(M*K*BS)
 
 			elbo = -nll - self.beta * kl  # shape=(M*K*BS) K=1
