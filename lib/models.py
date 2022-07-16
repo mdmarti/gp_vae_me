@@ -212,6 +212,7 @@ class Encoder(nn.Module):
 		# ds: T x latent_dim
 		x = self.encoder_conv(x)
 		x = x.view(-1, 8192)
+		x = self.encoder_fc(x)
 		mus = self.encoder_mu(x)
 		#mus = [nn.Softplus()(fc(mu)) for fc in self.fc_m2]
 		us = self.encoder_u(x)
