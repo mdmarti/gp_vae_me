@@ -8,7 +8,7 @@ from .utils import *
 from .nn_utils import *
 from .gp_kernel import *
 import os
-from torch.distributions import LowRankMultivariateNormal, MultivariateNormal
+from torch.distributions import LowRankMultivariateNormal, MultivariateNormal, Normal, kl_divergence
 from tensorflow_probability import distributions as tfd
 import tensorflow as tf
 import torch.nn as nn
@@ -409,7 +409,8 @@ class GPVAE(nn.Module):
 		z_samples = self.encoder.draw_samples(mus,us,ds)
 		# reshaping to be T x Z_dim
 		x_hat = self.decoder.decode(torch.transpose(z_samples,0,1))
-		nll = -x_hat_dist.log_prob(y)  # shape=(BS, TL, D)
+		x_hat_dist = Normal(x_hat, 1/self.precision)
+		nll = -x_hat_dist.log_prob(y)  # shape=(TL, D)
 		nll = torch.where(torch.is_finite(nll), nll, torch.zeros_like(nll))
 		if m_mask is not None:
 			m_mask = m_mask.to(torch.bool)
@@ -434,7 +435,7 @@ class GPVAE(nn.Module):
 	def _compute_loss(self, x, m_mask=None, return_parts=False):
 		assert len(x.shape) == 4, "Input should have shape: [time_length, n_chan,h,w]"
 		x = nn.identity(x)  # in case x is not a Tensor already...
-		x = torch.tile(x, [self.M * self.K, 1, 1])  # shape=(M*K*T, TL, D)
+		x = torch.tile(x, [self.M * self.K, 1,1, 1])  # shape=(M*K*T, n_chan, h,w)
 
 		if m_mask is not None:
 			m_mask = nn.identity(m_mask)  # in case m_mask is not a Tensor already...
@@ -446,37 +447,39 @@ class GPVAE(nn.Module):
 		
 		qz_x = LowRankMultivariateNormal(mus,us,ds)
 		
-		z = torch.transpose(qz_x.sample(),0,1)
-		px_z = self.decode(z)
+		zhat = torch.transpose(qz_x.sample(),0,1)
+		xhat = self.decode(zhat)
 
-		nll = -px_z.log_prob(x)  # shape=(M*K*BS, TL, D)
-		nll = tf.where(tf.math.is_finite(nll), nll, tf.zeros_like(nll))
+		px_z = Normal(xhat, 1/self.precision)
+
+		nll = -px_z.log_prob(x)  # shape=(M*K*TL, D)
+		nll = torch.where(torch.is_finite(nll), nll, torch.zeros_like(nll))
 		if m_mask is not None:
-			nll = tf.where(m_mask, tf.zeros_like(nll), nll)  # if not HI-VAE, m_mask is always zeros
-		nll = tf.reduce_sum(nll, [1, 2])  # shape=(M*K*BS)
+			nll = torch.where(m_mask, torch.zeros_like(nll), nll)  # if not HI-VAE, m_mask is always zeros
+		nll = torch.sum(nll, dim=-1)  # shape=(M*K*BS)
 
 		if self.K > 1:
-			kl = qz_x.log_prob(z) - pz.log_prob(z)  # shape=(M*K*BS, TL or d)
-			kl = tf.where(tf.is_finite(kl), kl, tf.zeros_like(kl))
-			kl = tf.reduce_sum(kl, 1)  # shape=(M*K*BS)
+			kl = qz_x.log_prob(zhat) - pz.log_prob(zhat)  # shape=(M*K*TL, or d)
+			kl = torch.where(torch.is_finite(kl), kl, torch.zeros_like(kl))
+			kl = torch.reduce_sum(kl, 1)  # shape=(M*K*BS)
 
 			weights = -nll - kl  # shape=(M*K*BS)
-			weights = tf.reshape(weights, [self.M, self.K, -1])  # shape=(M, K, BS)
+			weights = torch.reshape(weights, [self.M, self.K, -1])  # shape=(M, K, T)
 
 			elbo = reduce_logmeanexp(weights, axis=1)  # shape=(M, 1, BS)
 			elbo = tf.reduce_mean(elbo)  # scalar
 		else:
 			# if K==1, compute KL analytically
-			kl = self.kl_divergence(qz_x, pz)  # shape=(M*K*BS, TL or d)
-			kl = tf.where(tf.math.is_finite(kl), kl, tf.zeros_like(kl))
-			kl = tf.reduce_sum(kl, 1)  # shape=(M*K*BS)
+			kl = kl_divergence(qz_x, pz)  # shape=(TL x ??)
+			kl = torch.where(torch.is_finite(kl), kl, torch.zeros_like(kl))
+			kl = torch.sum(kl, dim=1)  # shape=(M*K*BS)
 
 			elbo = -nll - self.beta * kl  # shape=(M*K*BS) K=1
-			elbo = tf.reduce_mean(elbo)  # scalar
+			elbo = torch.mean(elbo)  # scalar
 
 		if return_parts:
-			nll = tf.reduce_mean(nll)  # scalar
-			kl = tf.reduce_mean(kl)  # scalar
+			nll = torch.mean(nll)  # scalar
+			kl = torch.mean(kl)  # scalar
 			return -elbo, nll, kl
 		else:
 			return -elbo
@@ -485,8 +488,8 @@ class GPVAE(nn.Module):
 		del m_mask
 		return self._compute_loss(x, return_parts=return_parts)
 
-	def kl_divergence(self, a, b):
-		return tfd.kl_divergence(a, b)
+	#def kl_divergence(self, a, b):
+	#	return tfd.kl_divergence(a, b)
 
 	def get_trainable_vars(self):
 		self.compute_loss(tf.random.normal(shape=(1, self.time_length, self.data_dim), dtype=tf.float32),
