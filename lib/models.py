@@ -406,8 +406,8 @@ class GPVAE(nn.Module):
 		assert len(kernel_matrix_tiled) == self.latent_dim
 
 		self.prior = MultivariateNormal(
-			loc=torch.zeros([self.latent_dim, T], dtype=torch.float32),
-			covariance_matrix=kernel_matrix_tiled).to(self.device)
+			loc=torch.zeros([self.latent_dim, T], dtype=torch.float32,device=self.device),
+			covariance_matrix=kernel_matrix_tiled)
 		return self.prior
 
 	def compute_nll(self, x, y=None, m_mask=None):
