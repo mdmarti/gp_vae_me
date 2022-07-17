@@ -293,6 +293,7 @@ class GPVAE(nn.Module):
 		### maybe change later
 		self.M = 1
 		self.K = 1
+		self.beta=4
 		self.kernel_scales=1
 		self.length_scale=7
 		self.sigma=1.005
@@ -482,8 +483,9 @@ class GPVAE(nn.Module):
 		else:
 			# if K==1, compute KL analytically
 			kl = kl_divergence(qz_x, pz)  # shape=(TL x ??)
+			print(kl.shape)
 			kl = torch.where(torch.isfinite(kl), kl, torch.zeros_like(kl))
-			kl = torch.sum(kl, dim=1)  # shape=(M*K*BS)
+			kl = torch.sum(kl)  # shape=(M*K*BS)
 
 			elbo = -nll - self.beta * kl  # shape=(M*K*BS) K=1
 			elbo = torch.mean(elbo)  # scalar
