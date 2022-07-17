@@ -656,7 +656,7 @@ class GPVAE(nn.Module):
 			# Retrieve spectrograms from the loader.
 			# Get resonstructions.
 			with torch.no_grad():
-				_, _, _,rec_specs = self.compute_loss(spec, return_parts=True)
+				_, _, _,rec_specs = self._compute_loss(spec, return_parts=True)
 			spec = spec.detach().cpu().numpy()
 			nrows = 1 + spec.shape[0]//5
 			fig,axs = plt.subplots(nrows=nrows,ncols=5)
