@@ -1,6 +1,6 @@
 """
 
-TensorFlow models for use in this project.
+PYTORCH models for use in this project.
 
 """
 
@@ -260,7 +260,8 @@ class Encoder(nn.Module):
 
 class GPVAE(nn.Module):
 
-	def __init__(self, encoder, decoder,save_dir,lr=1e-4,plots_dir='',precision=10):
+	def __init__(self, encoder, decoder,save_dir,lr=1e-4,plots_dir='',precision=10,
+				kernel='cauchy',length_scale=4,beta=0.5):
 
 
 		"""
@@ -294,11 +295,11 @@ class GPVAE(nn.Module):
 		### maybe change later
 		self.M = 1
 		self.K = 1
-		self.beta=0.4
+		self.beta=beta
 		self.kernel_scales=1
-		self.length_scale=5
+		self.length_scale=length_scale
 		self.sigma=1.005
-		self.kernel = 'rbf'
+		self.kernel = kernel
 		self.precision=precision
 		#if device_name == "auto":
 		device_name = "cuda" if torch.cuda.is_available() else "cpu"
@@ -393,6 +394,8 @@ class GPVAE(nn.Module):
 				kernel_matrices.append(matern_kernel(T, T / 2**i))
 			elif self.kernel == "cauchy":
 				kernel_matrices.append(cauchy_kernel(T, self.sigma,T*2 / 2**i))
+			else:
+				raise NotImplementedError
 
 		# Combine kernel matrices for each latent dimension
 		tiled_matrices = []

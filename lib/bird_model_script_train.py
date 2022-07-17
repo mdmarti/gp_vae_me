@@ -228,7 +228,7 @@ def model_comparison_umap(vanilla,smoothprior,time_recon,loader,n_samples = 5,da
 
 
 
-def bird_model_script(gpdir='',datadir='',segment=False):
+def bird_model_script(gpdir='',datadir='',length_scale=4,beta=4,kernel='cauchy',segment=False):
 
 ########## Setting up directory lists: separate into train, test dirs
 ############# Expected File Structure
@@ -374,7 +374,8 @@ def bird_model_script(gpdir='',datadir='',segment=False):
 		#print(save_file)
 		encoder = Encoder()
 		decoder = Decoder()
-		gpvae = GPVAE(encoder,decoder,gpdir,plots_dir=os.path.join(gpdir,'plots_shortwindow'))
+		gpvae = GPVAE(encoder,decoder,gpdir,plots_dir=os.path.join(gpdir,'plots_shortwindow'),
+				beta=beta,kernel=kernel,length_scale=length_scale)
 
 		if not os.path.isfile(save_file):
 			print('training vanilla')
