@@ -293,7 +293,7 @@ class GPVAE(nn.Module):
 		### maybe change later
 		self.M = 1
 		self.K = 1
-		self.beta=4
+		self.beta=0.4
 		self.kernel_scales=1
 		self.length_scale=7
 		self.sigma=1.005
