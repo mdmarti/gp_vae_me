@@ -482,8 +482,8 @@ class GPVAE(nn.Module):
 			elbo = torch.mean(elbo)  # scalar
 		else:
 			# if K==1, compute KL analytically
-			kl = kl_divergence(qz_x, pz)  # shape=(TL x ??)
-			print(kl.shape)
+			kl = kl_divergence(qz_x, pz)  # shape=(z_dim)
+			#print(kl.shape)
 			kl = torch.where(torch.isfinite(kl), kl, torch.zeros_like(kl))
 			kl = torch.sum(kl)  # shape=(M*K*BS)
 
