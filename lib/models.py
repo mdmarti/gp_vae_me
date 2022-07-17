@@ -296,9 +296,9 @@ class GPVAE(nn.Module):
 		self.K = 1
 		self.beta=0.4
 		self.kernel_scales=1
-		self.length_scale=7
+		self.length_scale=5
 		self.sigma=1.005
-		self.kernel = 'cauchy'
+		self.kernel = 'rbf'
 		self.precision=precision
 		#if device_name == "auto":
 		device_name = "cuda" if torch.cuda.is_available() else "cpu"
