@@ -551,7 +551,7 @@ class GPVAE(nn.Module):
 			#print(day.shape)
 			#print(spec.shape)
 			#spec = torch.stack(spec,axis=0)
-			spec = spec.to(self.device).squeeze().unsqueeze(1)
+			spec = torch.stack(spec).to(self.device).squeeze().unsqueeze(1)
 			with torch.no_grad():
 				loss,nll,kl,_ = self._compute_loss(spec,return_parts=True)
 
@@ -650,7 +650,7 @@ class GPVAE(nn.Module):
 		
 		(specs,days) = loader.dataset[indices]
 		for spec in specs:
-			spec = spec.to(self.device).squeeze().unsqueeze(1)
+			spec = torch.stack(spec).to(self.device).squeeze().unsqueeze(1)
 
 
 			# Retrieve spectrograms from the loader.
