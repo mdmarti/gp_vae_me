@@ -386,7 +386,7 @@ class GPVAE(nn.Module):
 		kernel_matrices = []
 		for i in range(self.kernel_scales):
 			if self.kernel == "rbf":
-				kernel_matrices.append(rbf_kernel(T, T*2 / 2**i))
+				kernel_matrices.append(rbf_kernel(T, T*4 / 2**i))
 			elif self.kernel == "diffusion":
 				kernel_matrices.append(diffusion_kernel(T, T*2 / 2**i))
 			elif self.kernel == "matern":
