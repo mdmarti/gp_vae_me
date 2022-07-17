@@ -226,6 +226,7 @@ class Encoder(nn.Module):
 		#log_var = self.min_logvar + nn.ReLU()(log_var - self.min_logvar)
 
 		# transpose each: pytorch will now treat latent dim as batch, T as dim of data
+		us = torch.zeros(us.shape,device=self.device,dtype=torch.float32)
 		return torch.transpose(mus,0,1), torch.transpose(us,0,1).unsqueeze(-1), torch.transpose(ds,0,1).exp()
 
 	def draw_samples(self, z_mean, z_u, z_d):
