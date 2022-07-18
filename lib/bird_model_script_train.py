@@ -323,7 +323,7 @@ def bird_model_script(gpdir='',datadir='',length_scale=4,beta=4,kernel='cauchy',
 		'th_2': -1, # segmenting threshold 2
 		'th_3': 4.5, # segmenting threshold 3
 		'window_length': 0.12, # spec window, in s
-		'window_overlap':0.06, # overlap between spec windows, in s
+		'window_overlap':0.10, # overlap between spec windows, in s
 		'algorithm': get_onsets_offsets, #finding syllables
 		'num_freq_bins': X_SHAPE[0],
 		'num_time_bins': X_SHAPE[1],
