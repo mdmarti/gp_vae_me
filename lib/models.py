@@ -460,10 +460,12 @@ class GPVAE(nn.Module):
 
 		pz = self._get_prior(T)
 		mus,us,ds = self.encoder.forward(x)
-		
+		#uhat = torch.zeros(us.shape,device=self.device)
+		#dhat = torch.ones(ds.shape,device=self.device)
 		qz_x = LowRankMultivariateNormal(mus,us,ds)
 		
 		zhat = torch.transpose(qz_x.sample(),0,1)
+		#zhat = torch.transpose(mus,0,1)
 		xhat = self.decoder.forward(zhat)
 
 		px_z = Normal(xhat, 1/self.precision)

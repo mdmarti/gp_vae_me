@@ -228,7 +228,7 @@ def model_comparison_umap(vanilla,smoothprior,time_recon,loader,n_samples = 5,da
 
 
 
-def bird_model_script(gpdir='',datadir='',length_scale=4,beta=4,kernel='cauchy',segment=False):
+def bird_model_script(gpdir='',datadir='',length_scale=4,beta=0.1,kernel='cauchy',segment=False):
 
 ########## Setting up directory lists: separate into train, test dirs
 ############# Expected File Structure
@@ -322,8 +322,8 @@ def bird_model_script(gpdir='',datadir='',length_scale=4,beta=4,kernel='cauchy',
 		'th_1': 2.25, # segmenting threshold 1
 		'th_2': -1, # segmenting threshold 2
 		'th_3': 4.5, # segmenting threshold 3
-		'window_length': 0.12, # spec window, in s
-		'window_overlap':0.10, # overlap between spec windows, in s
+		'window_length': 0.10, # spec window, in s
+		'window_overlap':0.09, # overlap between spec windows, in s
 		'algorithm': get_onsets_offsets, #finding syllables
 		'num_freq_bins': X_SHAPE[0],
 		'num_time_bins': X_SHAPE[1],
@@ -359,7 +359,7 @@ def bird_model_script(gpdir='',datadir='',length_scale=4,beta=4,kernel='cauchy',
 	motif_part = get_window_partition(adult_audio_dirs,adult_motif_dirs,0.8)
 	#motif_part['test'] = motif_part['train']
 	print('getting prediction loader')
-	loaders_for_prediction = get_fixed_ordered_data_loaders_motif(motif_part,segment_params)
+	loaders_for_prediction = get_fixed_ordered_data_loaders_motif(motif_part,segment_params,num_workers=6)
 	# this is used for the shotgun VAE, as opposed to the shotgun-dynamics VAE
 	#partition = get_window_partition(dsb_audio_dirs, dsb_segment_dirs, split)
 	#loaders = get_fixed_window_data_loaders(partition, segment_params)
