@@ -666,25 +666,33 @@ class GPVAE(nn.Module):
 		prior_samples=np.vstack(prior_samples)
 		prior_labels=np.zeros((prior_samples.shape[0],))
 		all_samples = np.vstack([prior_samples,latent_embeddings])
-
+		all_labels = np.hstack([prior_labels,latent_labels])
 		latent_only_pca = latent_only_embedder.fit_transform(latent_embeddings)
 		prior_only_pca = prior_embedder.fit_transform(prior_samples)
 		all_samples_pca=joint_embedder.fit_transform(all_samples)
 
 		latent_only_var = latent_only_embedder.explained_variance_ratio_
-		ndim_lonly = np.where(np.cumsum(latent_only_var) >= 0.99)
+		ndim_lonly = np.where(np.cumsum(latent_only_var) >= 0.99)[0][0]
 		prior_only_var = prior_embedder.explained_variance_ratio_
+		ndim_ponly = np.where(np.cumsum(prior_only_var) >= 0.99)[0][0]
 		joint_var = joint_embedder.explained_variance_ratio_
+		ndim_joint = np.where(np.cumsum(joint_var)>= 0.99)[0][0]
 
 
-		print()
+		print('Number of active dimensions, latents: {}'.format(ndim_lonly))
+		print('Number of active dimensions, prior: {}'.format(ndim_ponly))
+		print('Number of active dimensions, combined: {}'.format(ndim_joint))
 
 
+		ax = plt.gca()
+		lats = ax.scatter(all_samples_pca[all_labels==1,0],all_samples_pca[all_labels==1,1],color='r')
+		pri = ax.scatter(all_samples_pca[all_labels==0,0],all_samples_pca[all_labels==0,1],color='g',)
+		ax.legend([lats,pri],['latent means', 'prior samples'])
 
-
-
-				
-
+		save_fn = 'latent_prior_samples_epoch_' + str(self.epoch) + '.png' 
+		save_filename = os.path.join(self.plots_dir, save_fn)
+		plt.savefig(save_filename)
+		plt.close('all')
 
 		return 
 
