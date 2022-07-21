@@ -642,7 +642,7 @@ class GPVAE(nn.Module):
 		latent_only_embedder = PCA()
 
 		latent_embeddings=[]
-		prior_samples = []
+		prior_samples_all = []
 		
 		
 		for ind, (spec,day) in enumerate(loader):
@@ -661,12 +661,12 @@ class GPVAE(nn.Module):
 				prior_samples = pz.sample()
 
 			latent_embeddings.append(torch.transpose(mus,0,1).detach().cpu().numpy())
-			prior_samples.append(torch.transpose(prior_samples,0,1).detach().cpu().numpy())
+			prior_samples_all.append(torch.transpose(prior_samples,0,1).detach().cpu().numpy())
 
 
 		latent_embeddings=np.vstack(latent_embeddings)
 		latent_labels=np.ones((latent_embeddings.shape[0],))
-		prior_samples=np.vstack(prior_samples)
+		prior_samples_all=np.vstack(prior_samples_all)
 		prior_labels=np.zeros((prior_samples.shape[0],))
 		all_samples = np.vstack([prior_samples,latent_embeddings])
 		all_labels = np.hstack([prior_labels,latent_labels])
