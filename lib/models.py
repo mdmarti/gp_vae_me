@@ -16,6 +16,7 @@ import torch
 import torch.nn.functional as F
 from torch.optim import Adam
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
 
 
 # Encoders
@@ -261,7 +262,7 @@ class Encoder(nn.Module):
 class GPVAE(nn.Module):
 
 	def __init__(self, encoder, decoder,save_dir,lr=1e-4,plots_dir='',precision=10,
-				kernel='cauchy',length_scale=4,beta=0.5):
+				kernel='cauchy',length_scale=2,beta=0.5):
 
 
 		"""
@@ -622,6 +623,71 @@ class GPVAE(nn.Module):
 				self.visualize(loaders['test'])
 
 			self.epoch += 1
+
+	def visualize_latent_reps(self,loader):
+
+		"""
+		Plots PCs of prior samples, PCs of embeddings 
+		
+		"""
+
+		self.eval()
+
+
+		joint_embedder = PCA()
+		prior_embedder = PCA()
+		latent_only_embedder = PCA()
+
+		latent_embeddings=[]
+		prior_samples = []
+		
+		
+		for ind, (spec,day) in enumerate(loader):
+
+			
+			day = day.to(self.device).squeeze()
+			#print(day.shape)
+			#print(spec.shape)
+			#spec = torch.stack(spec,axis=0)
+			spec = torch.stack(spec).to(self.device).squeeze().unsqueeze(1)
+			T = spec.shape[0]
+			with torch.no_grad():
+				
+				mus,_,_ = self.encoder.forward(spec)
+				pz = self._get_prior(T)
+				prior_samples = pz.sample()
+
+			latent_embeddings.append(torch.transpose(mus,0,1).detach().cpu().numpy())
+			prior_samples.append(torch.transpose(prior_samples,0,1).detach().cpu().numpy())
+
+
+		latent_embeddings=np.vstack(latent_embeddings)
+		latent_labels=np.ones((latent_embeddings.shape[0],))
+		prior_samples=np.vstack(prior_samples)
+		prior_labels=np.zeros((prior_samples.shape[0],))
+		all_samples = np.vstack([prior_samples,latent_embeddings])
+
+		latent_only_pca = latent_only_embedder.fit_transform(latent_embeddings)
+		prior_only_pca = prior_embedder.fit_transform(prior_samples)
+		all_samples_pca=joint_embedder.fit_transform(all_samples)
+
+		latent_only_var = latent_only_embedder.explained_variance_ratio_
+		ndim_lonly = np.where(np.cumsum(latent_only_var) >= 0.99)
+		prior_only_var = prior_embedder.explained_variance_ratio_
+		joint_var = joint_embedder.explained_variance_ratio_
+
+
+		print()
+
+
+
+
+
+				
+
+
+		return 
+
 
 	def visualize(self, loader, num_specs=5):
 		"""
