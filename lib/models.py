@@ -216,7 +216,8 @@ class Encoder(nn.Module):
 		x = self.encoder_fc(x)
 		mus = self.encoder_mu(x)
 		#mus = [nn.Softplus()(fc(mu)) for fc in self.fc_m2]
-		us = self.encoder_u(x)
+		#us = self.encoder_u(x)
+		us = torch.zeros(mus.shape)
 		ds = self.encoder_d(x)
 		#precs = [nn.Softplus()(fc(prec)) for prec in self.fc_c2] 
 		#log_var = self.fc22(self.fc12(x))
@@ -689,8 +690,10 @@ class GPVAE(nn.Module):
 
 		ax = plt.gca()
 		lats = ax.scatter(all_samples_pca[all_labels==1,0],all_samples_pca[all_labels==1,1],color='r')
-		pri = ax.scatter(all_samples_pca[all_labels==0,0],all_samples_pca[all_labels==0,1],color='g',alpha=0.05)
+		pri = ax.scatter(all_samples_pca[all_labels==0,0],all_samples_pca[all_labels==0,1],color='g',alpha=0.01)
 		ax.legend([lats,pri],['latent means', 'prior samples'])
+		ax.set_xlabel('PC 1')
+		ax.set_ylabel('PC 2')
 
 		save_fn = 'latent_prior_samples_epoch_' + str(self.epoch) + '.png' 
 		save_filename = os.path.join(self.plots_dir, save_fn)
