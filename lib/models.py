@@ -667,11 +667,11 @@ class GPVAE(nn.Module):
 		latent_embeddings=np.vstack(latent_embeddings)
 		latent_labels=np.ones((latent_embeddings.shape[0],))
 		prior_samples_all=np.vstack(prior_samples_all)
-		prior_labels=np.zeros((prior_samples.shape[0],))
-		all_samples = np.vstack([prior_samples,latent_embeddings])
+		prior_labels=np.zeros((prior_samples_all.shape[0],))
+		all_samples = np.vstack([prior_samples_all,latent_embeddings])
 		all_labels = np.hstack([prior_labels,latent_labels])
 		latent_only_pca = latent_only_embedder.fit_transform(latent_embeddings)
-		prior_only_pca = prior_embedder.fit_transform(prior_samples)
+		prior_only_pca = prior_embedder.fit_transform(prior_samples_all)
 		all_samples_pca=joint_embedder.fit_transform(all_samples)
 
 		latent_only_var = latent_only_embedder.explained_variance_ratio_
