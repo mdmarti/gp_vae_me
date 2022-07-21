@@ -622,7 +622,7 @@ class GPVAE(nn.Module):
 			if (vis_freq is not None) and (epoch % vis_freq == 0):
 				self.visualize(loaders['test'])
 
-			if (lats_freq is not None) and (epoch % vis_freq == 0):
+			if (lats_freq is not None) and (epoch % lats_freq == 0):
 				self.visualize_latent_reps(loaders['test'])
 
 			self.epoch += 1
@@ -675,11 +675,11 @@ class GPVAE(nn.Module):
 		all_samples_pca=joint_embedder.fit_transform(all_samples)
 
 		latent_only_var = latent_only_embedder.explained_variance_ratio_
-		ndim_lonly = np.where(np.cumsum(latent_only_var) >= 0.99)[0][0]
+		ndim_lonly = np.where(np.cumsum(latent_only_var) >= 0.99)[0][0] + 1
 		prior_only_var = prior_embedder.explained_variance_ratio_
-		ndim_ponly = np.where(np.cumsum(prior_only_var) >= 0.99)[0][0]
+		ndim_ponly = np.where(np.cumsum(prior_only_var) >= 0.99)[0][0] + 1
 		joint_var = joint_embedder.explained_variance_ratio_
-		ndim_joint = np.where(np.cumsum(joint_var)>= 0.99)[0][0]
+		ndim_joint = np.where(np.cumsum(joint_var)>= 0.99)[0][0] + 1
 
 
 		print('Number of active dimensions, latents: {}'.format(ndim_lonly))
@@ -689,7 +689,7 @@ class GPVAE(nn.Module):
 
 		ax = plt.gca()
 		lats = ax.scatter(all_samples_pca[all_labels==1,0],all_samples_pca[all_labels==1,1],color='r')
-		pri = ax.scatter(all_samples_pca[all_labels==0,0],all_samples_pca[all_labels==0,1],color='g',)
+		pri = ax.scatter(all_samples_pca[all_labels==0,0],all_samples_pca[all_labels==0,1],color='g',alpha=0.05)
 		ax.legend([lats,pri],['latent means', 'prior samples'])
 
 		save_fn = 'latent_prior_samples_epoch_' + str(self.epoch) + '.png' 
