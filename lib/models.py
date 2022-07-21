@@ -579,7 +579,7 @@ class GPVAE(nn.Module):
 		return test_loss
 
 	def train_test_loop(self,loaders, epochs=100, test_freq=2, save_freq=10,
-		vis_freq=1):
+		vis_freq=1,lats_freq=2):
 		"""
 		Train the model for multiple epochs, testing and saving along the way.
 
@@ -621,6 +621,9 @@ class GPVAE(nn.Module):
 			# Plot reconstructions.
 			if (vis_freq is not None) and (epoch % vis_freq == 0):
 				self.visualize(loaders['test'])
+
+			if (lats_freq is not None) and (epoch % vis_freq == 0):
+				self.visualize_latent_reps(loaders['test'])
 
 			self.epoch += 1
 
